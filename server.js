@@ -1,43 +1,48 @@
 const http = require("http");
-// Routing, Handling different requests
-// const server = http.createServer((req, res) => {
-//   if (req.url === "/sales") {
-//     res.end("Welcome to the Sales Department");
-//   } else if (req.url === "/procurement") {
-//     res.end("Procurement Office is open");
-//   } else {
-//     res.writeHead(404);
-//     res.end("Page Not found");
-//   }
-// });
+const fs = require("fs");
 
-// server.listen(3000);
+const server = http.createServer((req, res) => {
+  // GET Route
+  if (req.url === "/kgl/procurement" && req.method === "GET") {
+    // Handle case where file might not exist yet
+    if (!fs.existsSync("data.json")) {
+      res.writeHead(200, { "Content-Type": "application/json" });
+      return res.end(JSON.stringify([]));
+    }
 
-const server2 = http.createServer((req, res) => {
-  if (req.url === "/kgl/info") {
-    const info = {
-      branches: ["Maganjo", "Matugga"],
-      status: "Active",
-    };
-
+    const data = fs.readFileSync("data.json");
     res.writeHead(200, { "Content-Type": "application/json" });
+    return res.end(data);
+  }
 
-    res.end(JSON.stringify(info));
-  } else {
-    res.end("Welcome to the KGL Server. Go to /kgl/info to see data");
+  // POST Route
+  if (req.url === "/kgl/procurement" && req.method === "POST") {
+    let body = "";
+
+    req.on("data", (chunk) => {
+      body += chunk.toString();
+    });
+
+    req.on("end", () => {
+      const newRecord = JSON.parse(body);
+
+      // Read existing data or start with empty array
+      let records = [];
+      if (fs.existsSync("data.json")) {
+        records = JSON.parse(fs.readFileSync("data.json"));
+      }
+
+      // Append new record
+      records.push(newRecord);
+
+      // Write back to file
+      fs.writeFileSync("data.json", JSON.stringify(records));
+
+      // Return success
+      res.writeHead(201, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ message: "Created" }));
+    });
   }
 });
 
-server2.on("error", (e) => {
-  if (e.code === "EADDRINUSE") {
-    console.error(
-      "Error: Port 3000 is already in use. Close your other terminal or use a different port",
-    );
-  } else {
-    console.error("Server error:", e);
-  }
-});
-
-server2.listen(3000, () => {
-  console.log("Server is running on http://localhost:3000");
-});
+server.listen(3000);
