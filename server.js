@@ -1,48 +1,53 @@
 const http = require("http");
 const fs = require("fs");
+const path = require("path");
+const uc = require("upper-case");
+
+const dataRecords = path.join(__dirname, "data.json");
 
 const server = http.createServer((req, res) => {
-  // GET Route
   if (req.url === "/kgl/procurement" && req.method === "GET") {
-    // Handle case where file might not exist yet
-    if (!fs.existsSync("data.json")) {
+    if (!fs.existsSync(dataRecords)) {
       res.writeHead(200, { "Content-Type": "application/json" });
       return res.end(JSON.stringify([]));
     }
 
-    const data = fs.readFileSync("data.json");
+    const data = fs.readFileSync(dataRecords);
     res.writeHead(200, { "Content-Type": "application/json" });
-    return res.end(data);
-  }
-
-  // POST Route
-  if (req.url === "/kgl/procurement" && req.method === "POST") {
+    res.end(data);
+  } else if (req.url === "/kgl/procurement" && req.method === "POST") {
     let body = "";
-
     req.on("data", (chunk) => {
       body += chunk.toString();
     });
 
     req.on("end", () => {
-      const newRecord = JSON.parse(body);
+      try {
+        const record = JSON.parse(body);
 
-      // Read existing data or start with empty array
-      let records = [];
-      if (fs.existsSync("data.json")) {
-        records = JSON.parse(fs.readFileSync("data.json"));
+        let currentRecords = [];
+        if (fs.existsSync(dataRecords)) {
+          currentRecords = JSON.parse(fs.readFileSync(dataRecords));
+        }
+        currentRecords.push(record);
+
+        fs.writeFileSync(dataRecords, JSON.stringify(currentRecords, null, 2));
+        res.writeHead(201, { "Content-Type": "application/json" });
+        res.end(
+          JSON.stringify({ message: uc.upperCase("Recorded"), data: record }),
+        );
+      } catch (error) {
+        res.writeHead(400, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "Invalid JSON" }));
       }
-
-      // Append new record
-      records.push(newRecord);
-
-      // Write back to file
-      fs.writeFileSync("data.json", JSON.stringify(records));
-
-      // Return success
-      res.writeHead(201, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ message: "Created" }));
     });
+  } else {
+    res.statusCode = 404;
+    res.end("Page Not Found");
   }
 });
 
-server.listen(3000);
+const PORT = 3000;
+server.listen(PORT, () => {
+  console.log("Server is running at http://localhost:3000");
+});
